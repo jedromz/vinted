@@ -22,10 +22,7 @@ func New(token string) (*Bot, error) {
 		return nil, err
 	}
 	bot := &Bot{Token: token, Dg: dg, Handlers: make(map[string]Handler)}
-	bot.AddHandler("szukaj", handlerForInterface(handleSearch))
-	bot.AddHandler("stone island", handlerForInterface(handleSearchWithQuery))
 	bot.AddHandler("start", handlerForInterface(onBotStart))
-	bot.Dg.AddHandler(onInteractionCreate)
 	bot.Dg.AddHandler(bot.globalHandler)
 	return bot, nil
 }

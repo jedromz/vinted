@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -53,7 +54,7 @@ func (c *VintedClient) String() string {
 	return s
 }
 
-type QueryParams interface {
+type IQueryParams interface {
 	GetSizeIDs() []int
 	GetCatalog() []int
 	GetMaterialIDs() []int
@@ -69,13 +70,13 @@ type QueryParams interface {
 	GetPerPage() int
 }
 
-func (c *VintedClient) FindItems(params QueryParams) (ItemsResponse, error) {
+func (c *VintedClient) FindItems(params IQueryParams) (ItemsResponse, error) {
+	log.Println(c.buildItemsQuery(params))
 	req, err := http.NewRequest("GET", c.buildItemsQuery(params), nil)
 	if err != nil {
 		return ItemsResponse{}, errors.New("failed to create request while fetching items")
 	}
 
-	// Add the cookies to the new request
 	for _, cookie := range c.Cookies {
 		req.AddCookie(cookie)
 	}
@@ -100,7 +101,7 @@ func (c *VintedClient) FindItems(params QueryParams) (ItemsResponse, error) {
 	}
 	return items, nil
 }
-func (c *VintedClient) buildItemsQuery(params QueryParams) string {
+func (c *VintedClient) buildItemsQuery(params IQueryParams) string {
 	values := url.Values{}
 
 	// Helper function to add slice parameters
