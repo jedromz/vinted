@@ -5,12 +5,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"log"
 	"strings"
+	"vinted-bidder/internal/manager"
 )
 
 type Bot struct {
 	Token    string
 	Dg       *discordgo.Session
 	Handlers map[string]Handler
+	Manager  *manager.Manager
 }
 
 type EventHandler interface {
@@ -22,7 +24,9 @@ func New(token string) (*Bot, error) {
 		return nil, err
 	}
 	bot := &Bot{Token: token, Dg: dg, Handlers: make(map[string]Handler)}
-	bot.AddHandler("start", handlerForInterface(onBotStart))
+	bot.Manager = manager.New()
+	bot.AddHandler("start", handlerForInterface(bot.onBotStart))
+	bot.AddHandler("stop", handlerForInterface(bot.onBotStop))
 	bot.Dg.AddHandler(bot.globalHandler)
 	return bot, nil
 }

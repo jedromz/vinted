@@ -2,8 +2,7 @@ package client
 
 import (
 	"encoding/json"
-	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -11,96 +10,85 @@ import (
 )
 
 const (
-	PublicApiUrl = "https://www.vinted.pl"
-	BaseApiUrl   = "https://www.vinted.pl/api/v2/"
-	ItemsApiUrl  = BaseApiUrl + "catalog/items?"
+	publicAPIBaseURL = "https://www.vinted.pl"
+	apiVersion       = "v2"
+	itemsEndpoint    = "catalog/items"
+	ItemsApiUrl      = publicAPIBaseURL + "catalog/items?"
 )
 
+var (
+	baseAPIURL = fmt.Sprintf("%s/api/%s/", publicAPIBaseURL, apiVersion)
+)
+
+// VintedClient manages communication with the Vinted API.
 type VintedClient struct {
-	Client  *http.Client
-	Cookies []*http.Cookie
+	httpClient *http.Client
+	cookies    []*http.Cookie
 }
 
-func New() (*VintedClient, error) {
-	v := &VintedClient{
-		Client: &http.Client{},
+// NewVintedClient initializes a new Vinted API client.
+func NewVintedClient() (*VintedClient, error) {
+	client := &VintedClient{
+		httpClient: &http.Client{},
 	}
-	err := v.fetchCookies()
-	if err != nil {
-		return nil, errors.New("failed to fetch cookies")
+	if err := client.fetchCookies(); err != nil {
+		return nil, fmt.Errorf("failed to fetch cookies: %w", err)
 	}
-	return v, nil
+	return client, nil
 }
 
 func (c *VintedClient) fetchCookies() error {
-	req, err := http.NewRequest("GET", PublicApiUrl, nil)
+	req, err := http.NewRequest("GET", publicAPIBaseURL, nil)
 	if err != nil {
-		return errors.New("failed to create request while fetching cookies")
+		return fmt.Errorf("creating request for cookies: %w", err)
 	}
-	resp, err := c.Client.Do(req)
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return errors.New("failed to get response while fetching cookies")
+		return fmt.Errorf("fetching cookies: %w", err)
 	}
 	defer resp.Body.Close()
-	c.Cookies = resp.Cookies()
+
+	c.cookies = resp.Cookies()
 	return nil
 }
 
-func (c *VintedClient) String() string {
-	s := ""
-	for _, cookie := range c.Cookies {
-		s += cookie.Name + "\n"
-	}
-	return s
-}
-
-type IQueryParams interface {
-	GetSizeIDs() []int
-	GetCatalog() []int
-	GetMaterialIDs() []int
-	GetColorIDs() []int
-	GetBrandIDs() []int
-	GetPriceFrom() int
-	GetPriceTo() int
-	GetStatusIDs() []int
-	GetOrder() string
-	GetCurrency() string
-	GetSearchText() string
-	GetPage() int
-	GetPerPage() int
-}
-
-func (c *VintedClient) FindItems(params IQueryParams) (ItemsResponse, error) {
-	log.Println(c.buildItemsQuery(params))
-	req, err := http.NewRequest("GET", c.buildItemsQuery(params), nil)
+func (c *VintedClient) makeRequestWithCookies(method, url string, body url.Values) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, strings.NewReader(body.Encode()))
 	if err != nil {
-		return ItemsResponse{}, errors.New("failed to create request while fetching items")
+		return nil, fmt.Errorf("creating request: %w", err)
 	}
 
-	for _, cookie := range c.Cookies {
+	for _, cookie := range c.cookies {
 		req.AddCookie(cookie)
 	}
 
-	resp, err := c.Client.Do(req)
-
+	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return ItemsResponse{}, errors.New("failed to get response while fetching items")
+		return nil, fmt.Errorf("performing request: %w", err)
+	}
+	return resp, nil
+}
+
+// FindItems searches for items on Vinted based on the provided query parameters.
+func (c *VintedClient) FindItems(params IQueryParams) (*ItemsResponse, error) {
+	url := c.buildItemsQuery(params)
+	resp, err := c.makeRequestWithCookies("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("fetching items: %w", err)
 	}
 	defer resp.Body.Close()
-	var items ItemsResponse
+
 	if resp.StatusCode != http.StatusOK {
-		return ItemsResponse{}, errors.New("failed to get response while fetching items " + resp.Status)
-	}
-	if resp.Body == nil {
-		return ItemsResponse{}, nil
+		return nil, fmt.Errorf("fetching items failed with status: %s", resp.Status)
 	}
 
-	err = json.NewDecoder(resp.Body).Decode(&items)
-	if err != nil {
-		return ItemsResponse{}, errors.New("failed to decode response while fetching items")
+	var items ItemsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
+		return nil, fmt.Errorf("decoding response: %w", err)
 	}
-	return items, nil
+	return &items, nil
 }
+
 func (c *VintedClient) buildItemsQuery(params IQueryParams) string {
 	values := url.Values{}
 
