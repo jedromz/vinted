@@ -15,7 +15,7 @@ import (
 
 const (
 	startMessagePrefix = "<@1198201183504957481> start "
-	pollInterval       = 5 * time.Second
+	pollInterval       = 500 * time.Millisecond
 )
 
 func (b *Bot) onBotStart(s *discordgo.Session, m *discordgo.MessageCreate) {
