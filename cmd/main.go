@@ -1,47 +1,36 @@
 package main
 
 import (
-	"fmt"
-	"time"
-	search2 "vinted-bidder/internal/search"
+	"log"
+	"net/http"
+	"vinted-bidder/internal/discord"
 )
 
-func main() {
-
-	t := time.NewTicker(5 * time.Second)
-	for {
-		select {
-		case <-t.C:
-			find()
-		}
-	}
+func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	// Respond with a simple message indicating everything is okay.
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
-func find() {
-	searchTool, err := search2.New()
+func main() {
+	bot, err := discord.New("MTE5ODIwMTE4MzUwNDk1NzQ4MQ.GWI-NT.ch1IpGuRC9VBgnqucDSS_b7kf6_NG-MEvSPrR4") // Replace with your actual token
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatalf("error creating Discord session: %v", err)
 	}
-	params := search2.QueryParams{
-		SizeIDs:     nil,
-		Catalog:     nil,
-		MaterialIDs: nil,
-		ColorIDs:    nil,
-		BrandIDs:    nil,
-		PriceFrom:   0,
-		PriceTo:     0,
-		StatusIDs:   nil,
-		Order:       "",
-		Currency:    "",
-		SearchText:  "stone island",
-	}
-	items, err := searchTool.FindItems(&params)
+
+	err = bot.Start()
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatalf("error opening connection: %v", err)
 	}
-	for _, item := range items.Items {
-		fmt.Println(item.Title + " " + item.Price + "PLN " + item.Photo.Url + " " + item.SizeTitle)
-	}
+
+	// Set up the HTTP server for health checks.
+	http.HandleFunc("/health", healthCheckHandler)
+	go func() {
+		if err := http.ListenAndServe(":8080", nil); err != nil {
+			log.Fatalf("Failed to start HTTP server for health checks: %v", err)
+		}
+	}()
+
+	// Block forever.
+	select {}
 }

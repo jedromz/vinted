@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -10,14 +11,7 @@ import (
 )
 
 const (
-	publicAPIBaseURL = "https://www.vinted.pl"
-	apiVersion       = "v2"
-	itemsEndpoint    = "catalog/items"
-	ItemsApiUrl      = publicAPIBaseURL + "catalog/items?"
-)
-
-var (
-	baseAPIURL = fmt.Sprintf("%s/api/%s/", publicAPIBaseURL, apiVersion)
+	ItemsApiUrl = "https://www.vinted.pl/api/v2/catalog/items?order=newest_first"
 )
 
 // VintedClient manages communication with the Vinted API.
@@ -38,7 +32,7 @@ func NewVintedClient() (*VintedClient, error) {
 }
 
 func (c *VintedClient) fetchCookies() error {
-	req, err := http.NewRequest("GET", publicAPIBaseURL, nil)
+	req, err := http.NewRequest("GET", "https://www.vinted.pl", nil)
 	if err != nil {
 		return fmt.Errorf("creating request for cookies: %w", err)
 	}
@@ -72,6 +66,7 @@ func (c *VintedClient) makeRequestWithCookies(method, url string, body url.Value
 // FindItems searches for items on Vinted based on the provided query parameters.
 func (c *VintedClient) FindItems(params IQueryParams) (*ItemsResponse, error) {
 	url := c.buildItemsQuery(params)
+	log.Printf("Fetching items from: %s", url)
 	resp, err := c.makeRequestWithCookies("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetching items: %w", err)
@@ -121,11 +116,6 @@ func (c *VintedClient) buildItemsQuery(params IQueryParams) string {
 	}
 	if params.GetPriceTo() > 0 {
 		values.Set("price_to", strconv.Itoa(params.GetPriceTo()))
-	}
-	if params.GetOrder() != "" {
-		values.Set("order", params.GetOrder())
-	} else {
-		values.Set("order", "newest_first")
 	}
 	if params.GetCurrency() != "" {
 		values.Set("currency", params.GetCurrency())
