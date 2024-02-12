@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"vinted-bidder/internal/discord"
 )
 
@@ -13,7 +14,7 @@ func healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	bot, err := discord.New("MTE5ODIwMTE4MzUwNDk1NzQ4MQ.G1t2on.2ZAJb40rkzhFQ32YBULv7pNFZABrwnjYe2LIOQ") // Replace with your actual token
+	bot, err := discord.New(os.Getenv("BOT_TOKEN")) // Replace with your actual token
 	if err != nil {
 		log.Fatalf("error creating Discord session: %v", err)
 	}
