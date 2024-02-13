@@ -71,17 +71,36 @@ func (c *VintedClient) FindItems(params IQueryParams) (*ItemsResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("fetching items: %w", err)
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode == 401 {
+		c.fetchCookies()
+		resp, err := c.makeRequestWithCookies("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("fetching items: %w", err)
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fetching items failed with status: %s", resp.Status)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("fetching items failed with status: %s", resp.Status)
+		}
 
-	var items ItemsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		var items ItemsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
+			return nil, fmt.Errorf("decoding response: %w", err)
+		}
+		return &items, nil
+	} else {
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("fetching items failed with status: %s", resp.Status)
+		}
+
+		var items ItemsResponse
+		if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
+			return nil, fmt.Errorf("decoding response: %w", err)
+		}
+		return &items, nil
 	}
-	return &items, nil
 }
 
 func (c *VintedClient) buildItemsQuery(params IQueryParams) string {
